@@ -1,0 +1,12 @@
+# Bỏ qua các folder chứa dữ liệu và ảnh
+tbx11k-simplified/
+yolo-dataset/
+*.jpg
+*.png
+*.jpeg
+*.bmp
+*.tif
+*.tiff
+*.gif
+__pycache__/
+.venv/
