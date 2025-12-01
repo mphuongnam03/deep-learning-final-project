@@ -10,3 +10,5 @@ yolo-dataset/
 *.gif
 __pycache__/
 .venv/
+dataset/
+datasets/

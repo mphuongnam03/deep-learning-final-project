@@ -1,438 +1,453 @@
-# TB Detection Project - Phát hiện Lao phổi bằng YOLO
+# 🩺 Hệ Thống Chẩn Đoán Bệnh Lao Phổi (TB Detection System)
 
-## 📋 Tổng quan
+Hệ thống AI phát hiện và phân loại bệnh Lao Phổi từ ảnh X-quang ngực sử dụng **Kiến Trúc Cascade 2 Giai Đoạn** với YOLOv8.
 
-Project này sử dụng YOLOv8/YOLO11 để phát hiện bệnh lao phổi (Tuberculosis - TB) từ ảnh X-quang. Project được xây dựng trên framework Ultralytics YOLO với pipeline hoàn chỉnh từ preprocessing, training, evaluation đến visualization.
+## 📋 Mục Lục
 
-## 🎯 Mục đích
+- [Tổng Quan](#-tổng-quan)
+- [Kiến Trúc Hệ Thống](#-kiến-trúc-hệ-thống)
+- [Cấu Trúc Thư Mục](#-cấu-trúc-thư-mục)
+- [Pipeline Xử Lý](#-pipeline-xử-lý)
+- [Cài Đặt](#-cài-đặt)
+- [Hướng Dẫn Sử Dụng](#-hướng-dẫn-sử-dụng)
+- [Chi Tiết Các Module](#-chi-tiết-các-module)
 
-- **Phát hiện bệnh lao phổi**: Phân loại và phát hiện vùng bệnh lao trong ảnh X-quang
-- **3 lớp phân loại**:
-  - `healthy`: Khỏe mạnh
-  - `sick_but_no_tb`: Bệnh nhưng không phải lao
-  - `tb`: Bệnh lao phổi
-- **Object Detection**: Phát hiện và vẽ bounding box cho các vùng bệnh
+---
 
-## 📁 Cấu trúc Project
+## 🎯 Tổng Quan
+
+### Bài Toán
+Phát hiện và phân loại bệnh Lao Phổi từ ảnh X-quang ngực thành **4 lớp**:
+- `healthy` - Khỏe mạnh
+- `sick_but_no_tb` - Bệnh nhưng không phải Lao
+- `active_tb` - Lao hoạt động
+- `latent_tb` - Lao tiềm ẩn
+
+### Giải Pháp: Kiến Trúc Cascade 2 Giai Đoạn
+
+Do chỉ có ảnh TB mới có bounding box, hệ thống sử dụng **Two-Stage Cascade Architecture**:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    GIAI ĐOẠN 1: PHÂN LOẠI                       │
+│                                                                 │
+│   Ảnh X-quang  ───►  YOLOv8-cls  ───►  4 lớp chẩn đoán         │
+│                      (Phân loại)       ├── healthy              │
+│                                        ├── sick_but_no_tb       │
+│                                        ├── active_tb ──────┐    │
+│                                        └── latent_tb ──────┤    │
+└─────────────────────────────────────────────────────────────│───┘
+                                                              │
+                                                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                    GIAI ĐOẠN 2: PHÁT HIỆN                       │
+│                    (Chỉ cho TB dương tính)                      │
+│                                                                 │
+│   Ảnh TB  ───►  YOLOv8-det  ───►  Bounding Box tổn thương      │
+│                 (Phát hiện)       ├── active_tb lesions         │
+│                                   └── latent_tb lesions         │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 🏗 Kiến Trúc Hệ Thống
+
+Dự án được xây dựng theo **Clean Architecture** với các tầng rõ ràng:
+
+```
+┌────────────────────────────────────────────────────────────────────┐
+│                         MAIN.PY (Entry Point)                      │
+│                      CLI Interface & Orchestration                 │
+└─────────────────────────────────┬──────────────────────────────────┘
+                                  │
+                                  ▼
+┌────────────────────────────────────────────────────────────────────┐
+│                      USE CASES LAYER                               │
+│                  (Tầng Logic Nghiệp Vụ)                            │
+│                                                                    │
+│   ┌─────────────────────┐    ┌──────────────────────────────────┐  │
+│   │ TBDiagnosisUseCase  │    │ DiagnosisResultExporter          │  │
+│   │ - diagnose()        │    │ - to_json()                      │  │
+│   │ - diagnose_batch()  │    │ - to_summary()                   │  │
+│   └─────────────────────┘    └──────────────────────────────────┘  │
+└─────────────────────────────────┬──────────────────────────────────┘
+                                  │
+                                  ▼
+┌────────────────────────────────────────────────────────────────────┐
+│                     INTERFACES LAYER (Ports)                       │
+│                   (Tầng Giao Diện Trừu Tượng)                      │
+│                                                                    │
+│   ┌──────────────────┐  ┌──────────────────┐  ┌─────────────────┐  │
+│   │ImageClassifierPort│  │ObjectDetectorPort│  │ImageAnnotatorPort│ │
+│   └──────────────────┘  └──────────────────┘  └─────────────────┘  │
+└─────────────────────────────────┬──────────────────────────────────┘
+                                  │
+                                  ▼
+┌────────────────────────────────────────────────────────────────────┐
+│                   INFRASTRUCTURE LAYER (Adapters)                  │
+│                  (Tầng Triển Khai Cụ Thể)                          │
+│                                                                    │
+│   ┌──────────────────┐  ┌──────────────────┐  ┌─────────────────┐  │
+│   │ YOLOv8Classifier │  │ YOLOv8Detector   │  │ TBAnnotator     │  │
+│   │ (4 lớp)          │  │ (2 lớp TB)       │  │ (Vẽ kết quả)    │  │
+│   └──────────────────┘  └──────────────────┘  └─────────────────┘  │
+└────────────────────────────────────────────────────────────────────┘
+                                  │
+                                  ▼
+┌────────────────────────────────────────────────────────────────────┐
+│                        DOMAIN LAYER                                │
+│                   (Tầng Thực Thể Cốt Lõi)                          │
+│                                                                    │
+│   ┌─────────────────┐  ┌─────────────────┐  ┌──────────────────┐   │
+│   │ DiagnosisClass  │  │ BoundingBox     │  │ DiagnosisResult  │   │
+│   │ (Enum 4 lớp)    │  │ (Tọa độ box)    │  │ (Kết quả tổng hợp)│  │
+│   └─────────────────┘  └─────────────────┘  └──────────────────┘   │
+└────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 📁 Cấu Trúc Thư Mục
 
 ```
 ai4life/
-├── main.py                      # Script chính để chạy toàn bộ pipeline
-├── preprocessing.py             # Xử lý và chuyển đổi dữ liệu
-├── train.py                     # Huấn luyện model
-├── evaluate.py                  # Đánh giá model
-├── heatmap.py                   # Tạo heatmap visualization
-├── predict_with_json.py        # Dự đoán và trả về JSON
-├── analyze_data.py              # Phân tích dữ liệu (chỉ phân tích)
-├── data.py                      # Đếm số lượng ảnh
-├── data_check.py                # Kiểm tra dữ liệu
-├── test-model.py                # Test model nhanh
-├── config_yolo.py               # Tạo config YOLO
-├── convert_to_tensorboard.py    # Chuyển đổi kết quả sang TensorBoard
-├── requirements.txt             # Dependencies
-├── results.csv                   # Kết quả training (metrics)
-├── best.pt                       # Model tốt nhất
-├── tbx11k-simplified/           # Dataset đã xử lý
-│   ├── data.csv                 # Metadata dataset
-│   ├── dataset.yaml             # Config YOLO
-│   ├── images/                  # Ảnh đã chia train/val
-│   └── labels/                  # Labels YOLO format
-├── yolo-dataset/                # Dataset YOLO format
-├── results/                      # Thư mục lưu kết quả
-│   ├── analysis/                # Kết quả phân tích
-│   ├── evaluation/              # Kết quả đánh giá
-│   ├── heatmaps/                # Heatmaps
-│   └── metrics/                 # Metrics
-└── tb_detection/                # Kết quả training YOLO
+│
+├── 📄 main.py                    # Điểm vào chính - CLI interface
+├── 📄 requirements.txt           # Các thư viện cần thiết
+├── 📄 README.md                  # Tài liệu dự án (file này)
+│
+├── 📁 src/                       # Mã nguồn chính
+│   │
+│   ├── 📁 domain/                # TẦNG DOMAIN - Thực thể cốt lõi
+│   │   ├── __init__.py
+│   │   └── entities.py           # DiagnosisClass, BoundingBox, DiagnosisResult
+│   │
+│   ├── 📁 interfaces/            # TẦNG INTERFACES - Các cổng trừu tượng
+│   │   ├── __init__.py
+│   │   └── ports.py              # ImageClassifierPort, ObjectDetectorPort, etc.
+│   │
+│   ├── 📁 infrastructure/        # TẦNG INFRASTRUCTURE - Triển khai cụ thể
+│   │   ├── __init__.py
+│   │   ├── yolo_adapters.py      # YOLOv8Classifier, YOLOv8Detector
+│   │   └── image_utils.py        # OpenCVImageLoader, TBAnnotator
+│   │
+│   ├── 📁 usecases/              # TẦNG USE CASES - Logic nghiệp vụ
+│   │   ├── __init__.py
+│   │   └── diagnosis.py          # TBDiagnosisUseCase, DiagnosisResultExporter
+│   │
+│   ├── 📁 data/                  # Tiền xử lý dữ liệu
+│   │   ├── __init__.py
+│   │   └── preprocessing.py      # TBDataPreprocessor
+│   │
+│   ├── 📁 training/              # Huấn luyện model
+│   │   ├── __init__.py
+│   │   └── trainer.py            # TBModelTrainer
+│   │
+│   ├── 📁 evaluation/            # Đánh giá model
+│   │   ├── __init__.py
+│   │   ├── evaluator.py          # TBModelEvaluator
+│   │   └── heatmap.py            # TBHeatmapGenerator
+│   │
+│   ├── 📁 config/                # Cấu hình
+│   │   └── __init__.py
+│   │
+│   └── 📁 utils/                 # Tiện ích chung
+│       └── __init__.py
+│
+├── 📁 tbx11k-simplified/         # Dataset TBX11K
+│   ├── data.csv                  # Metadata của dataset
+│   ├── images/                   # Thư mục chứa ảnh
+│   └── test/                     # Ảnh test
+│
+├── 📁 runs/                      # Kết quả huấn luyện YOLO
+├── 📁 tb_detection/              # Output model detection
+├── 📁 tb_classification/         # Output model classification
+├── 📁 results/                   # Kết quả đánh giá
+├── 📁 test_images/               # Ảnh test thử nghiệm
+│
+└── 📁 .venv/                     # Môi trường ảo Python
 ```
 
-## 🔄 Luồng hoạt động
+---
 
-### Pipeline chính
+## 🔄 Pipeline Xử Lý
+
+### Pipeline Tổng Quan
 
 ```
-1. PREPROCESSING (preprocessing.py)
-   ├── Đọc CSV metadata
-   ├── Phân tích dataset (analyze_dataset)
-   ├── Chuyển đổi sang YOLO format
-   └── Tạo dataset.yaml
+┌─────────────────────────────────────────────────────────────────────────┐
+│                         TRAINING PIPELINE                               │
+└─────────────────────────────────────────────────────────────────────────┘
 
-2. TRAINING (train.py)
-   ├── Load YOLOv8 model
-   ├── Huấn luyện với dataset
-   ├── Validation tự động
-   └── Lưu best.pt và last.pt
+     ┌──────────┐      ┌──────────────┐      ┌───────────────────────────┐
+     │ data.csv │ ───► │ Tiền xử lý   │ ───► │ Dataset YOLO Format       │
+     │ + images │      │ (preprocess) │      │ ├── classification/       │
+     └──────────┘      └──────────────┘      │ │   ├── train/            │
+                                             │ │   │   ├── healthy/      │
+                                             │ │   │   ├── sick_but_no_tb│
+                                             │ │   │   ├── active_tb/    │
+                                             │ │   │   └── latent_tb/    │
+                                             │ │   └── val/              │
+                                             │ └── detection/            │
+                                             │     ├── images/           │
+                                             │     └── labels/           │
+                                             └───────────────────────────┘
+                                                          │
+                              ┌────────────────────────────┼────────────────┐
+                              ▼                            ▼                │
+                    ┌──────────────────┐        ┌──────────────────┐       │
+                    │ Train YOLOv8-cls │        │ Train YOLOv8-det │       │
+                    │ (4 lớp)          │        │ (2 lớp TB)       │       │
+                    └────────┬─────────┘        └────────┬─────────┘       │
+                             │                           │                 │
+                             ▼                           ▼                 │
+                    ┌──────────────────┐        ┌──────────────────┐       │
+                    │ cls_best.pt      │        │ det_best.pt      │       │
+                    │ (Model phân loại)│        │ (Model phát hiện)│       │
+                    └──────────────────┘        └──────────────────┘       │
+                                                                           │
+└──────────────────────────────────────────────────────────────────────────┘
 
-3. EVALUATION (evaluate.py)
-   ├── Đánh giá trên validation set
-   ├── Tính metrics (mAP, Precision, Recall)
-   └── Dự đoán trên ảnh test
+┌─────────────────────────────────────────────────────────────────────────┐
+│                        INFERENCE PIPELINE                               │
+└─────────────────────────────────────────────────────────────────────────┘
 
-4. VISUALIZATION (heatmap.py)
-   ├── Tạo heatmap từ predictions
-   ├── Vẽ bounding boxes
-   └── Overlay lên ảnh gốc
-
-5. PREDICTION (predict_with_json.py)
-   ├── Dự đoán trên ảnh
-   ├── Trả về JSON với bbox, confidence
-   └── Lưu ảnh đã đánh dấu
+   ┌──────────────┐     ┌────────────────────────────────────────────────┐
+   │  Ảnh X-quang │     │            TBDiagnosisUseCase                  │
+   │  (Input)     │ ──► │                                                │
+   └──────────────┘     │  ┌─────────────────────────────────────────┐   │
+                        │  │ Bước 1: Tải & Xác thực ảnh              │   │
+                        │  │         OpenCVImageLoader.load()         │   │
+                        │  └────────────────────┬────────────────────┘   │
+                        │                       ▼                        │
+                        │  ┌─────────────────────────────────────────┐   │
+                        │  │ Bước 2: GIAI ĐOẠN 1 - Phân loại         │   │
+                        │  │         YOLOv8Classifier.classify()      │   │
+                        │  │         → 4 lớp (healthy/sick/active/    │   │
+                        │  │           latent)                        │   │
+                        │  └────────────────────┬────────────────────┘   │
+                        │                       ▼                        │
+                        │  ┌─────────────────────────────────────────┐   │
+                        │  │ Bước 3: Kiểm tra TB dương tính?         │   │
+                        │  │         DiagnosisClass.requires_detection│   │
+                        │  └──────────┬─────────────────┬────────────┘   │
+                        │             │ NO              │ YES            │
+                        │             ▼                 ▼                │
+                        │        [Bỏ qua]    ┌───────────────────────┐   │
+                        │                    │ Bước 4: GIAI ĐOẠN 2   │   │
+                        │                    │ YOLOv8Detector.detect()│  │
+                        │                    │ → Bounding boxes       │   │
+                        │                    └───────────┬───────────┘   │
+                        │                                │               │
+                        │  ┌─────────────────────────────┴───────────┐   │
+                        │  │ Bước 5: Chú thích ảnh                   │   │
+                        │  │         TBAnnotator.annotate()           │   │
+                        │  └────────────────────┬────────────────────┘   │
+                        │                       ▼                        │
+                        │  ┌─────────────────────────────────────────┐   │
+                        │  │ Bước 6: Tạo DiagnosisResult             │   │
+                        │  │         - predicted_class               │   │
+                        │  │         - confidence                    │   │
+                        │  │         - bounding_boxes (nếu TB)       │   │
+                        │  │         - processing_time               │   │
+                        │  └─────────────────────────────────────────┘   │
+                        └────────────────────────────────────────────────┘
+                                             │
+                                             ▼
+                        ┌────────────────────────────────────────────────┐
+                        │               OUTPUT                           │
+                        │  ┌──────────────┐  ┌────────────────────────┐  │
+                        │  │ JSON Report  │  │ Ảnh đã chú thích       │  │
+                        │  │ - Chẩn đoán  │  │ - Banner phân loại     │  │
+                        │  │ - Tọa độ box │  │ - Bounding boxes       │  │
+                        │  │ - Thời gian  │  │ - Độ tin cậy           │  │
+                        │  └──────────────┘  └────────────────────────┘  │
+                        └────────────────────────────────────────────────┘
 ```
 
-## 📄 Chi tiết từng file
+---
 
-### 🚀 File chính
+## ⚙️ Cài Đặt
 
-#### `main.py`
+### 1. Yêu Cầu Hệ Thống
+- Python 3.10+
+- CUDA (khuyến nghị cho GPU training)
+- 8GB+ RAM
 
-**Mục đích**: Entry point chính của project, điều phối toàn bộ pipeline
-
-**Chức năng**:
-
-- Parse arguments từ command line
-- Chạy các bước: preprocess → train → evaluate → heatmap
-- Hỗ trợ mode: `preprocess`, `train`, `evaluate`, `heatmap`, `all`
-
-**Cách dùng**:
+### 2. Cài Đặt Môi Trường
 
 ```bash
-python main.py --mode all --csv data.csv --images images/ --output output/
-```
+# Clone repository
+git clone https://github.com/nemeryous/deep-learning-final-project.git
+cd deep-learning-final-project
 
-#### `preprocessing.py`
+# Tạo môi trường ảo
+python -m venv .venv
 
-**Mục đích**: Xử lý và chuyển đổi dữ liệu từ CSV sang YOLO format
+# Kích hoạt môi trường (Windows)
+.venv\Scripts\activate
 
-**Class**: `TBDataPreprocessor`
+# Kích hoạt môi trường (Linux/Mac)
+source .venv/bin/activate
 
-**Chức năng chính**:
-
-- `parse_csv()`: Đọc và parse file CSV metadata
-- `analyze_dataset()`: Phân tích thống kê dataset
-  - Phân bố theo source (train/val)
-  - Phân bố theo target (no_tb/tb)
-  - Phân bố theo image_type
-  - Đếm số ảnh có bounding box
-- `convert_to_yolo_format()`: Chuyển đổi bbox sang YOLO format (normalized)
-- `create_yaml_config()`: Tạo file dataset.yaml cho YOLO
-- `run()`: Chạy toàn bộ pipeline preprocessing
-
-**Input**: CSV file với columns: `fname`, `image_height`, `image_width`, `source`, `bbox`, `target`, `image_type`
-
-**Output**:
-
-- Thư mục YOLO format (images/train, images/val, labels/train, labels/val)
-- File `dataset.yaml`
-
-#### `train.py`
-
-**Mục đích**: Huấn luyện YOLOv8 model
-
-**Class**: `TBModelTrainer`
-
-**Chức năng**:
-
-- Load YOLOv8 model (nano, small, medium, large, xlarge)
-- Training với các hyperparameters:
-  - Optimizer: SGD
-  - Learning rate: 0.01
-  - Data augmentation (mosaic, flip, HSV, etc.)
-  - Early stopping (patience=20)
-- Tự động validation sau mỗi epoch
-- Lưu checkpoint mỗi 10 epochs
-- Tạo plots và metrics
-
-**Output**:
-
-- `best.pt`: Model tốt nhất
-- `last.pt`: Model cuối cùng
-- Kết quả trong `tb_detection/`
-
-#### `evaluate.py`
-
-**Mục đích**: Đánh giá model trên validation set
-
-**Class**: `TBModelEvaluator`
-
-**Chức năng**:
-
-- `evaluate_on_validation()`: Tính metrics (mAP50, mAP50-95, Precision, Recall)
-- `predict_single_image()`: Dự đoán trên 1 ảnh
-- `predict_batch()`: Dự đoán trên nhiều ảnh
-
-**Metrics**:
-
-- mAP50: Mean Average Precision @ IoU=0.5
-- mAP50-95: Mean Average Precision @ IoU=0.5:0.95
-- Precision: Độ chính xác
-- Recall: Độ nhạy
-
-#### `heatmap.py`
-
-**Mục đích**: Tạo heatmap visualization từ predictions
-
-**Class**: `TBHeatmapGenerator`
-
-**Chức năng**:
-
-- `generate_heatmap()`: Tạo heatmap cho 1 ảnh
-  - Predict bounding boxes
-  - Tạo gradient heatmap từ tâm bbox
-  - Overlay lên ảnh gốc
-  - Vẽ bounding boxes và labels
-- `generate_batch_heatmaps()`: Tạo heatmap cho nhiều ảnh
-
-**Visualization**:
-
-- Heatmap màu JET (xanh → đỏ)
-- Bounding boxes với màu theo class:
-  - Green: healthy
-  - Orange: sick_but_no_tb
-  - Red: tb
-
-#### `predict_with_json.py`
-
-**Mục đích**: API để dự đoán và trả về kết quả dưới dạng JSON
-
-**Class**: `TBDetectionAPI`
-
-**Chức năng**:
-
-- `predict_image()`: Dự đoán 1 ảnh, trả về JSON
-  - Bounding boxes
-  - Confidence scores
-  - Class names
-  - Ảnh đã đánh dấu (base64)
-- `predict_batch()`: Dự đoán nhiều ảnh, lưu vào JSON file
-
-**JSON format**:
-
-```json
-{
-  "model_version": "yolov8n-tb-v1.0",
-  "image_name": "test.png",
-  "image_size": {"width": 512, "height": 512},
-  "detections": [
-    {
-      "bbox": [x1, y1, x2, y2],
-      "confidence": 0.95,
-      "class_id": 2,
-      "class_name": "tb"
-    }
-  ],
-  "annotated_image": "data:image/png;base64,..."
-}
-```
-
-### 🔧 File hỗ trợ
-
-#### `analyze_data.py`
-
-**Mục đích**: Script đơn giản để chỉ phân tích dữ liệu (không chuyển đổi)
-
-**Cách dùng**:
-
-```bash
-python analyze_data.py --csv data.csv --images images/
-```
-
-#### `data.py`
-
-**Mục đích**: Đếm số lượng ảnh trong các thư mục train/val/test
-
-#### `data_check.py`
-
-**Mục đích**: Kiểm tra dữ liệu
-
-- Kiểm tra ảnh và label có khớp không
-- Phát hiện ảnh thiếu label hoặc label thiếu ảnh
-- Kiểm tra encoding của file label
-
-#### `test-model.py`
-
-**Mục đích**: Script nhanh để test model
-
-**Cách dùng**:
-
-```python
-python test-model.py
-```
-
-#### `config_yolo.py`
-
-**Mục đích**: Tạo file dataset.yaml cho YOLO
-
-#### `convert_to_tensorboard.py`
-
-**Mục đích**: Chuyển đổi kết quả training từ CSV sang TensorBoard logs
-
-**Cách dùng**:
-
-```bash
-python convert_to_tensorboard.py
-# Sau đó: tensorboard --logdir runs/experiment_1
-```
-
-## 🚀 Cách sử dụng
-
-### 1. Cài đặt dependencies
-
-```bash
+# Cài đặt thư viện
 pip install -r requirements.txt
 ```
 
-### 2. Chạy toàn bộ pipeline
+---
 
-```bash
-# Chạy tất cả: preprocess → train → evaluate
-python main.py --mode all \
-    --csv tbx11k-simplified/data.csv \
-    --images tbx11k-simplified/images \
-    --output tbx11k-simplified \
-    --epochs 100 \
-    --batch 16 \
-    --img-size 512
-```
+## 🚀 Hướng Dẫn Sử Dụng
 
-### 3. Chạy từng bước riêng lẻ
-
-#### Bước 1: Preprocessing
+### 1. Tiền Xử Lý Dữ Liệu
 
 ```bash
 python main.py --mode preprocess \
     --csv tbx11k-simplified/data.csv \
     --images tbx11k-simplified/images \
-    --output tbx11k-simplified
+    --output dataset
 ```
 
-#### Bước 2: Training
+**Output:**
+- `dataset/classification/` - Dataset cho phân loại (4 lớp)
+- `dataset/detection/` - Dataset cho phát hiện (2 lớp TB)
+- `dataset/dataset.yaml` - File cấu hình YOLO
+
+### 2. Huấn Luyện Model
 
 ```bash
-python main.py --mode train \
-    --output tbx11k-simplified \
-    --epochs 100 \
-    --batch 16 \
-    --img-size 512
+# Huấn luyện model Phân loại (4 lớp)
+python main.py --mode train-cls --output dataset --epochs 100
+
+# Huấn luyện model Phát hiện (2 lớp TB)
+python main.py --mode train-det --output dataset --epochs 100
+
+# Huấn luyện cả hai
+python main.py --mode all --output dataset --epochs 100
 ```
 
-#### Bước 3: Evaluation
+### 3. Suy Luận (Inference)
+
+```bash
+python main.py --mode inference \
+    --image test_images/sample.png \
+    --cls-model tb_classification/yolov8n_cls/weights/best.pt \
+    --det-model tb_detection/yolov8n_tb/weights/best.pt \
+    --conf 0.25 \
+    --save-annotated \
+    --output-json result.json
+```
+
+### 4. Đánh Giá Model
 
 ```bash
 python main.py --mode evaluate \
-    --model tb_detection/yolov8n_tb_20251011_190341/weights/best.pt \
-    --output tbx11k-simplified
+    --model best.pt \
+    --output dataset
 ```
 
-#### Bước 4: Tạo heatmap
+### 5. Tạo Heatmap
 
 ```bash
-python main.py --mode heatmap \
-    --model best.pt
+python main.py --mode heatmap --model best.pt
 ```
-
-### 4. Chỉ phân tích dữ liệu
-
-```bash
-python analyze_data.py --csv tbx11k-simplified/data.csv
-```
-
-### 5. Dự đoán với JSON API
-
-```python
-from predict_with_json import TBDetectionAPI
-
-detector = TBDetectionAPI(model_path="best.pt")
-result = detector.predict_image("test_image.png")
-print(result)
-```
-
-## 📊 Dataset
-
-### Cấu trúc CSV
-
-File `data.csv` cần có các columns:
-
-- `fname`: Tên file ảnh
-- `image_height`, `image_width`: Kích thước ảnh
-- `source`: `train` hoặc `val`
-- `bbox`: Bounding box dạng dict `{'xmin': x, 'ymin': y, 'width': w, 'height': h}` hoặc `'none'`
-- `target`: `no_tb` hoặc `tb`
-- `image_type`: `healthy`, `sick_but_no_tb`, hoặc `tb`
-- `tb_type`: (tùy chọn) Loại TB
-
-### Classes
-
-- **Class 0**: `healthy` - Khỏe mạnh
-- **Class 1**: `sick_but_no_tb` - Bệnh nhưng không phải lao
-- **Class 2**: `tb` - Bệnh lao phổi
-
-## 📈 Metrics
-
-Khi training, model sẽ tính các metrics:
-
-- **mAP50**: Mean Average Precision @ IoU=0.5
-- **mAP50-95**: Mean Average Precision @ IoU=0.5:0.95
-- **Precision**: Độ chính xác
-- **Recall**: Độ nhạy
-
-Kết quả được lưu trong:
-
-- `results.csv`: Metrics theo epoch
-- `tb_detection/[run_name]/`: Plots, confusion matrix, PR curves
-
-## 🎨 Visualization
-
-### Heatmap
-
-Tạo heatmap để visualize vùng phát hiện bệnh:
-
-- Màu xanh → đỏ: Intensity tăng dần
-- Bounding boxes với màu theo class
-- Confidence scores
-
-### TensorBoard
-
-Xem training progress:
-
-```bash
-tensorboard --logdir tb_detection/
-```
-
-## 🔍 Troubleshooting
-
-### Lỗi: ModuleNotFoundError
-
-```bash
-pip install -r requirements.txt
-```
-
-### Lỗi: Không tìm thấy ảnh
-
-- Kiểm tra đường dẫn trong CSV
-- Đảm bảo ảnh tồn tại trong thư mục `images/`
-
-### Lỗi: Encoding label
-
-- Chạy `data_check.py` để kiểm tra
-- Đảm bảo file label là UTF-8
-
-## 📝 Notes
-
-- Model được lưu tự động trong `tb_detection/[timestamp]/weights/`
-- Best model: `best.pt`
-- Last model: `last.pt`
-- Checkpoints mỗi 10 epochs: `epochN.pt`
-
-## 🤝 Đóng góp
-
-Project này được xây dựng cho mục đích nghiên cứu và giáo dục về phát hiện bệnh lao phổi bằng deep learning.
-
-## 📄 License
-
-[Thêm license nếu có]
 
 ---
 
-**Tác giả**: [Tên tác giả]  
-**Ngày tạo**: 2024  
-**Phiên bản**: 1.0
+## 📦 Chi Tiết Các Module
+
+### 1. Domain Layer (`src/domain/entities.py`)
+
+| Class | Mô tả |
+|-------|-------|
+| `DiagnosisClass` | Enum 4 lớp chẩn đoán (healthy, sick_but_no_tb, active_tb, latent_tb) |
+| `BoundingBox` | Tọa độ vùng tổn thương với độ tin cậy |
+| `ClassificationResult` | Kết quả từ Giai đoạn 1 (phân loại) |
+| `DetectionResult` | Kết quả từ Giai đoạn 2 (phát hiện) |
+| `DiagnosisResult` | Kết quả tổng hợp cuối cùng |
+| `ProcessingContext` | Theo dõi thời gian xử lý |
+
+### 2. Interfaces Layer (`src/interfaces/ports.py`)
+
+| Interface | Mô tả |
+|-----------|-------|
+| `ImageClassifierPort` | Giao diện cho model phân loại |
+| `ObjectDetectorPort` | Giao diện cho model phát hiện |
+| `ImageAnnotatorPort` | Giao diện cho vẽ chú thích |
+| `ImageLoaderPort` | Giao diện cho tải ảnh |
+
+### 3. Infrastructure Layer (`src/infrastructure/`)
+
+| Class | File | Mô tả |
+|-------|------|-------|
+| `YOLOv8Classifier` | `yolo_adapters.py` | Adapter YOLOv8-cls cho phân loại 4 lớp |
+| `YOLOv8Detector` | `yolo_adapters.py` | Adapter YOLOv8-det cho phát hiện 2 lớp TB |
+| `OpenCVImageLoader` | `image_utils.py` | Tải ảnh bằng OpenCV |
+| `TBAnnotator` | `image_utils.py` | Vẽ kết quả chẩn đoán lên ảnh |
+
+### 4. Use Cases Layer (`src/usecases/diagnosis.py`)
+
+| Class | Mô tả |
+|-------|-------|
+| `TBDiagnosisUseCase` | Điều phối pipeline Cascade 2 giai đoạn |
+| `DiagnosisResultExporter` | Xuất kết quả ra JSON, summary |
+
+### 5. Data Layer (`src/data/preprocessing.py`)
+
+| Class | Mô tả |
+|-------|-------|
+| `TBDataPreprocessor` | Tiền xử lý dataset, tạo cấu trúc YOLO |
+
+### 6. Training Layer (`src/training/trainer.py`)
+
+| Class | Mô tả |
+|-------|-------|
+| `TBModelTrainer` | Huấn luyện model YOLOv8 với data augmentation |
+
+### 7. Evaluation Layer (`src/evaluation/`)
+
+| Class | File | Mô tả |
+|-------|------|-------|
+| `TBModelEvaluator` | `evaluator.py` | Đánh giá model trên validation set |
+| `TBHeatmapGenerator` | `heatmap.py` | Tạo heatmap trực quan |
+
+---
+
+## 📊 Dataset
+
+### TBX11K-Simplified
+
+| Thống kê | Số lượng |
+|----------|----------|
+| Tổng số ảnh | 8,811 |
+| Healthy | 3,800 |
+| Sick but no TB | 3,800 |
+| Active TB | 972 |
+| Latent TB | 239 |
+| Ảnh có bounding box | 1,211 (chỉ TB) |
+
+---
+
+## 🎨 Kết Quả Trực Quan
+
+### Mã Màu Chẩn Đoán
+
+| Lớp | Màu | Ý nghĩa |
+|-----|-----|---------|
+| `healthy` | 🟢 Xanh lá | Phổi khỏe mạnh |
+| `sick_but_no_tb` | 🟡 Vàng | Có bệnh nhưng không phải Lao |
+| `active_tb` | 🔴 Đỏ | Lao phổi hoạt động |
+| `latent_tb` | 🟠 Cam | Lao phổi tiềm ẩn |
+
+---
+
+## 👥 Tác Giả
+
+- **Repository:** [deep-learning-final-project](https://github.com/nemeryous/deep-learning-final-project)
+- **Branch:** main
+
+---
+
+## 📄 License
+
+MIT License - Xem file [LICENSE](LICENSE) để biết thêm chi tiết.
