@@ -1,14 +1,3 @@
-"""
-Chuẩn bị dữ liệu cho YOLOv8 Classification và Detection
-=========================================================
-Script này xử lý dữ liệu X-quang ngực thô thành 2 dataset riêng biệt:
-1. dataset_cls: Cho YOLOv8-cls (4 lớp phân loại)
-2. dataset_det: Cho YOLOv8-det (2 lớp phát hiện + background images)
-
-Tác giả: AI4Life Team
-Ngày: 2025
-"""
-
 import os
 import shutil
 import pandas as pd
@@ -26,16 +15,6 @@ np.random.seed(42)
 
 
 class DataPreparer:
-    """
-    Lớp xử lý và chuẩn bị dữ liệu cho YOLOv8.
-    
-    Attributes:
-        csv_path: Đường dẫn đến file CSV chứa metadata
-        images_dir: Thư mục chứa ảnh gốc
-        output_dir: Thư mục output chính
-        val_ratio: Tỷ lệ validation (mặc định 0.2 = 20%)
-    """
-    
     def __init__(self, csv_path: str, images_dir: str, output_dir: str, val_ratio: float = 0.2):
         self.csv_path = csv_path
         self.images_dir = images_dir

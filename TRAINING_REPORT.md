@@ -25,10 +25,10 @@
 
 ### 1.1 Kết Quả Training Tổng Hợp
 
-| Model | Task | Epochs | Thời gian | Metric chính | Kết quả |
-|-------|------|--------|-----------|--------------|---------|
-| **YOLOv8n-cls** | Classification | 100 | ~45 phút | Top-1 Accuracy | **98.1%** ✅ |
-| **YOLOv8n-det** | Detection | 100 | ~2.5 giờ | mAP50 | **43.0%** ✅ |
+| Model           | Task           | Epochs | Thời gian | Metric chính   | Kết quả      |
+| --------------- | -------------- | ------ | --------- | -------------- | ------------ |
+| **YOLOv8n-cls** | Classification | 100    | ~45 phút  | Top-1 Accuracy | **98.1%** ✅ |
+| **YOLOv8n-det** | Detection      | 100    | ~2.5 giờ  | mAP50          | **43.0%** ✅ |
 
 ### 1.2 Pipeline 2 Giai Đoạn
 
@@ -42,32 +42,32 @@
 
 ### 2.1 Cấu Hình Training
 
-| Tham số | Giá trị |
-|---------|---------|
-| Model | YOLOv8n-cls (1.44M params) |
-| Input size | 224×224 |
-| Batch size | 32 |
-| Epochs | 100 |
-| Optimizer | AdamW |
-| Learning rate | 0.01 (cosine decay) |
+| Tham số       | Giá trị                    |
+| ------------- | -------------------------- |
+| Model         | YOLOv8n-cls (1.44M params) |
+| Input size    | 224×224                    |
+| Batch size    | 32                         |
+| Epochs        | 100                        |
+| Optimizer     | AdamW                      |
+| Learning rate | 0.01 (cosine decay)        |
 
 ### 2.2 Dataset Classification
 
-| Tập | healthy | sick_but_no_tb | active_tb | latent_tb | Tổng |
-|-----|---------|----------------|-----------|-----------|------|
-| **Train** | 3,040 | 3,040 | 777 | 640* | **7,497** |
-| **Val** | 760 | 760 | 195 | 137 | **1,852** |
+| Tập       | healthy | sick_but_no_tb | active_tb | latent_tb | Tổng      |
+| --------- | ------- | -------------- | --------- | --------- | --------- |
+| **Train** | 3,040   | 3,040          | 777       | 640\*     | **7,497** |
+| **Val**   | 760     | 760            | 195       | 137       | **1,852** |
 
-*\*latent_tb được augment từ 239 → 640 ảnh để cân bằng*
+_\*latent_tb được augment từ 239 → 640 ảnh để cân bằng_
 
 ### 2.3 Kết Quả Training
 
-| Metric | Epoch 1 | Epoch 50 | Epoch 100 (Final) |
-|--------|---------|----------|-------------------|
-| **Train Loss** | 0.854 | 0.088 | **0.036** |
-| **Val Loss** | 0.511 | 0.100 | **0.071** |
-| **Top-1 Accuracy** | 83.2% | 96.7% | **98.1%** |
-| **Top-5 Accuracy** | 100% | 100% | **100%** |
+| Metric             | Epoch 1 | Epoch 50 | Epoch 100 (Final) |
+| ------------------ | ------- | -------- | ----------------- |
+| **Train Loss**     | 0.854   | 0.088    | **0.036**         |
+| **Val Loss**       | 0.511   | 0.100    | **0.071**         |
+| **Top-1 Accuracy** | 83.2%   | 96.7%    | **98.1%**         |
+| **Top-5 Accuracy** | 100%    | 100%     | **100%**          |
 
 ### 2.4 Đồ Thị Training Classification
 
@@ -83,12 +83,12 @@ Val Loss:   ██████████████████████�
 
 ### 2.5 Đánh Giá Classification
 
-| Tiêu chí | Đánh giá | Ghi chú |
-|----------|----------|---------|
-| **Accuracy** | ⭐⭐⭐⭐⭐ Xuất sắc | 98.1% - vượt xa ngưỡng thực tế (>90%) |
-| **Overfitting** | ⭐⭐⭐⭐⭐ Không có | Train/Val loss ổn định, gap nhỏ |
-| **Convergence** | ⭐⭐⭐⭐⭐ Tốt | Converge đều, không dao động |
-| **Training Time** | ⭐⭐⭐⭐⭐ Nhanh | ~45 phút với GPU entry-level |
+| Tiêu chí          | Đánh giá            | Ghi chú                               |
+| ----------------- | ------------------- | ------------------------------------- |
+| **Accuracy**      | ⭐⭐⭐⭐⭐ Xuất sắc | 98.1% - vượt xa ngưỡng thực tế (>90%) |
+| **Overfitting**   | ⭐⭐⭐⭐⭐ Không có | Train/Val loss ổn định, gap nhỏ       |
+| **Convergence**   | ⭐⭐⭐⭐⭐ Tốt      | Converge đều, không dao động          |
+| **Training Time** | ⭐⭐⭐⭐⭐ Nhanh    | ~45 phút với GPU entry-level          |
 
 ---
 
@@ -96,43 +96,43 @@ Val Loss:   ██████████████████████�
 
 ### 3.1 Cấu Hình Training
 
-| Tham số | Giá trị |
-|---------|---------|
-| Model | YOLOv8n (3.0M params) |
-| Input size | 640×640 |
-| Batch size | 16 |
-| Epochs | 100 |
-| Optimizer | AdamW |
-| Learning rate | Auto (0.00167) |
-| Patience | 20 epochs |
+| Tham số       | Giá trị               |
+| ------------- | --------------------- |
+| Model         | YOLOv8n (3.0M params) |
+| Input size    | 640×640               |
+| Batch size    | 16                    |
+| Epochs        | 100                   |
+| Optimizer     | AdamW                 |
+| Learning rate | Auto (0.00167)        |
+| Patience      | 20 epochs             |
 
 ### 3.2 Dataset Detection
 
-| Tập | active_tb | latent_tb | Background | Tổng |
-|-----|-----------|-----------|------------|------|
-| **Train** | 562 | 584 | 800 | **1,946** |
-| **Val** | 179 | 158 | 200 | **537** |
+| Tập       | active_tb | latent_tb | Background | Tổng      |
+| --------- | --------- | --------- | ---------- | --------- |
+| **Train** | 562       | 584       | 800        | **1,946** |
+| **Val**   | 179       | 158       | 200        | **537**   |
 
-*Background images: Ảnh healthy/sick_but_no_tb với empty labels để giảm false positive*
+_Background images: Ảnh healthy/sick_but_no_tb với empty labels để giảm false positive_
 
 ### 3.3 Kết Quả Training
 
-| Metric | Epoch 1 | Epoch 50 | Epoch 100 (Final) |
-|--------|---------|----------|-------------------|
-| **Box Loss** | 2.00 | 1.52 | **1.01** |
-| **Cls Loss** | 4.78 | 1.94 | **1.04** |
-| **mAP50** | 4.9% | 31.4% | **43.0%** |
-| **mAP50-95** | 1.5% | 16.1% | **26.5%** |
-| **Recall** | 15.3% | 53.8% | **68.7%** |
-| **Precision** | 8.7% | 30.9% | **43.7%** |
+| Metric        | Epoch 1 | Epoch 50 | Epoch 100 (Final) |
+| ------------- | ------- | -------- | ----------------- |
+| **Box Loss**  | 2.00    | 1.52     | **1.01**          |
+| **Cls Loss**  | 4.78    | 1.94     | **1.04**          |
+| **mAP50**     | 4.9%    | 31.4%    | **43.0%**         |
+| **mAP50-95**  | 1.5%    | 16.1%    | **26.5%**         |
+| **Recall**    | 15.3%   | 53.8%    | **68.7%**         |
+| **Precision** | 8.7%    | 30.9%    | **43.7%**         |
 
 ### 3.4 Kết Quả Theo Từng Class
 
-| Class | Images | Instances | Precision | Recall | mAP50 | mAP50-95 |
-|-------|--------|-----------|-----------|--------|-------|----------|
-| **active_tb** | 179 | 179 | 38.0% | 57.0% | 32.8% | 16.2% |
-| **latent_tb** | 158 | 158 | 51.0% | 75.3% | 53.1% | 36.8% |
-| **Tổng** | 537 | 337 | **44.5%** | **66.1%** | **43.0%** | **26.5%** |
+| Class         | Images | Instances | Precision | Recall    | mAP50     | mAP50-95  |
+| ------------- | ------ | --------- | --------- | --------- | --------- | --------- |
+| **active_tb** | 179    | 179       | 38.0%     | 57.0%     | 32.8%     | 16.2%     |
+| **latent_tb** | 158    | 158       | 51.0%     | 75.3%     | 53.1%     | 36.8%     |
+| **Tổng**      | 537    | 337       | **44.5%** | **66.1%** | **43.0%** | **26.5%** |
 
 ### 3.5 Đồ Thị Training Detection
 
@@ -151,13 +151,13 @@ Cls Loss:  ███████████████████████
 
 ### 3.6 Đánh Giá Detection
 
-| Tiêu chí | Đánh giá | Ghi chú |
-|----------|----------|---------|
-| **mAP50** | ⭐⭐⭐⭐ Tốt | 43% - khá tốt cho medical imaging |
-| **Recall** | ⭐⭐⭐⭐ Tốt | 66.1% - phát hiện được 2/3 tổn thương |
-| **latent_tb** | ⭐⭐⭐⭐⭐ Xuất sắc | 75.3% Recall, 53.1% mAP50 |
-| **active_tb** | ⭐⭐⭐ Trung bình | 57% Recall - cần cải thiện |
-| **Overfitting** | ⭐⭐⭐⭐⭐ Không có | Val loss ổn định |
+| Tiêu chí        | Đánh giá            | Ghi chú                               |
+| --------------- | ------------------- | ------------------------------------- |
+| **mAP50**       | ⭐⭐⭐⭐ Tốt        | 43% - khá tốt cho medical imaging     |
+| **Recall**      | ⭐⭐⭐⭐ Tốt        | 66.1% - phát hiện được 2/3 tổn thương |
+| **latent_tb**   | ⭐⭐⭐⭐⭐ Xuất sắc | 75.3% Recall, 53.1% mAP50             |
+| **active_tb**   | ⭐⭐⭐ Trung bình   | 57% Recall - cần cải thiện            |
+| **Overfitting** | ⭐⭐⭐⭐⭐ Không có | Val loss ổn định                      |
 
 ---
 
@@ -165,31 +165,31 @@ Cls Loss:  ███████████████████████
 
 ### 4.1 Điểm Mạnh
 
-| # | Điểm mạnh | Chi tiết |
-|---|-----------|----------|
-| 1 | **Classification accuracy cao** | 98.1% - gần như hoàn hảo |
-| 2 | **Không overfitting** | Cả 2 model đều stable |
-| 3 | **Recall tốt cho y tế** | 66% Detection, 98% Classification |
-| 4 | **Training hiệu quả** | Chạy được trên GPU 4GB |
-| 5 | **latent_tb detection tốt** | 75% Recall - quan trọng cho phát hiện sớm |
+| #   | Điểm mạnh                       | Chi tiết                                  |
+| --- | ------------------------------- | ----------------------------------------- |
+| 1   | **Classification accuracy cao** | 98.1% - gần như hoàn hảo                  |
+| 2   | **Không overfitting**           | Cả 2 model đều stable                     |
+| 3   | **Recall tốt cho y tế**         | 66% Detection, 98% Classification         |
+| 4   | **Training hiệu quả**           | Chạy được trên GPU 4GB                    |
+| 5   | **latent_tb detection tốt**     | 75% Recall - quan trọng cho phát hiện sớm |
 
 ### 4.2 Điểm Yếu
 
-| # | Điểm yếu | Chi tiết |
-|---|----------|----------|
-| 1 | **active_tb detection thấp** | 57% Recall, 33% mAP50 |
-| 2 | **Precision chưa cao** | 44% - nhiều false positive |
-| 3 | **Dataset nhỏ** | Chỉ ~1,200 ảnh có bounding box |
-| 4 | **Imbalanced data** | latent_tb chỉ có 239 ảnh gốc |
+| #   | Điểm yếu                     | Chi tiết                       |
+| --- | ---------------------------- | ------------------------------ |
+| 1   | **active_tb detection thấp** | 57% Recall, 33% mAP50          |
+| 2   | **Precision chưa cao**       | 44% - nhiều false positive     |
+| 3   | **Dataset nhỏ**              | Chỉ ~1,200 ảnh có bounding box |
+| 4   | **Imbalanced data**          | latent_tb chỉ có 239 ảnh gốc   |
 
 ### 4.3 So Sánh Với Benchmark
 
-| Hệ thống | Classification | Detection mAP50 | Ghi chú |
-|----------|---------------|-----------------|---------|
-| **Hệ thống này** | **98.1%** | **43.0%** | YOLOv8n, GPU 4GB |
-| YOLO-TB (paper) | 95.2% | 51.3% | YOLOv5x, GPU 24GB |
-| ResNet-50 baseline | 92.0% | - | Classification only |
-| VGG-16 baseline | 89.5% | - | Classification only |
+| Hệ thống           | Classification | Detection mAP50 | Ghi chú             |
+| ------------------ | -------------- | --------------- | ------------------- |
+| **Hệ thống này**   | **98.1%**      | **43.0%**       | YOLOv8n, GPU 4GB    |
+| YOLO-TB (paper)    | 95.2%          | 51.3%           | YOLOv5x, GPU 24GB   |
+| ResNet-50 baseline | 92.0%          | -               | Classification only |
+| VGG-16 baseline    | 89.5%          | -               | Classification only |
 
 → **Classification vượt trội**, Detection cạnh tranh được với model lớn hơn.
 
@@ -199,38 +199,38 @@ Cls Loss:  ███████████████████████
 
 ### 5.1 Đánh Giá Khả Thi
 
-| Tiêu chí | Mức độ | Lý do |
-|----------|--------|-------|
-| **Screening sàng lọc** | ✅ **Cao** | 98% accuracy giúp lọc nhanh bệnh nhân |
-| **Hỗ trợ bác sĩ** | ✅ **Cao** | Detect vị trí tổn thương, giảm thời gian đọc |
-| **Chẩn đoán độc lập** | ⚠️ **Trung bình** | Cần bác sĩ xác nhận, Recall chưa đủ 100% |
-| **Triển khai thực tế** | ✅ **Cao** | Model nhẹ, chạy được trên CPU/GPU phổ thông |
+| Tiêu chí               | Mức độ            | Lý do                                        |
+| ---------------------- | ----------------- | -------------------------------------------- |
+| **Screening sàng lọc** | ✅ **Cao**        | 98% accuracy giúp lọc nhanh bệnh nhân        |
+| **Hỗ trợ bác sĩ**      | ✅ **Cao**        | Detect vị trí tổn thương, giảm thời gian đọc |
+| **Chẩn đoán độc lập**  | ⚠️ **Trung bình** | Cần bác sĩ xác nhận, Recall chưa đủ 100%     |
+| **Triển khai thực tế** | ✅ **Cao**        | Model nhẹ, chạy được trên CPU/GPU phổ thông  |
 
 ### 5.2 Ứng Dụng Phù Hợp
 
-| Ứng dụng | Khả thi | Ghi chú |
-|----------|---------|---------|
-| **Sàng lọc cộng đồng** | ⭐⭐⭐⭐⭐ | Lọc nhanh healthy vs sick |
-| **Hỗ trợ phòng khám** | ⭐⭐⭐⭐ | Đề xuất vùng nghi ngờ cho BS |
-| **Triage khẩn cấp** | ⭐⭐⭐⭐ | Ưu tiên ca TB active |
-| **Chẩn đoán cuối cùng** | ⭐⭐ | Cần kết hợp với BS chuyên khoa |
+| Ứng dụng                | Khả thi    | Ghi chú                        |
+| ----------------------- | ---------- | ------------------------------ |
+| **Sàng lọc cộng đồng**  | ⭐⭐⭐⭐⭐ | Lọc nhanh healthy vs sick      |
+| **Hỗ trợ phòng khám**   | ⭐⭐⭐⭐   | Đề xuất vùng nghi ngờ cho BS   |
+| **Triage khẩn cấp**     | ⭐⭐⭐⭐   | Ưu tiên ca TB active           |
+| **Chẩn đoán cuối cùng** | ⭐⭐       | Cần kết hợp với BS chuyên khoa |
 
 ### 5.3 Yêu Cầu Triển Khai
 
-| Yêu cầu | Tối thiểu | Khuyến nghị |
-|---------|-----------|-------------|
-| **CPU** | Intel i5 / AMD Ryzen 5 | Intel i7 / AMD Ryzen 7 |
-| **GPU** | Không bắt buộc | NVIDIA GTX 1050+ |
-| **RAM** | 8GB | 16GB |
-| **Inference time** | ~50ms/ảnh (GPU) | ~200ms/ảnh (CPU) |
+| Yêu cầu            | Tối thiểu              | Khuyến nghị            |
+| ------------------ | ---------------------- | ---------------------- |
+| **CPU**            | Intel i5 / AMD Ryzen 5 | Intel i7 / AMD Ryzen 7 |
+| **GPU**            | Không bắt buộc         | NVIDIA GTX 1050+       |
+| **RAM**            | 8GB                    | 16GB                   |
+| **Inference time** | ~50ms/ảnh (GPU)        | ~200ms/ảnh (CPU)       |
 
 ### 5.4 Rủi Ro Y Tế
 
-| Rủi ro | Mức độ | Giải pháp |
-|--------|--------|-----------|
-| **False Negative** | ⚠️ Trung bình | 34% TB bị bỏ sót → Luôn có BS review |
-| **False Positive** | ⚠️ Thấp | 56% → Xác nhận bằng xét nghiệm đàm |
-| **Bias dataset** | ⚠️ Có thể | Dataset từ 1 nguồn → Cần validate trên data mới |
+| Rủi ro             | Mức độ        | Giải pháp                                       |
+| ------------------ | ------------- | ----------------------------------------------- |
+| **False Negative** | ⚠️ Trung bình | 34% TB bị bỏ sót → Luôn có BS review            |
+| **False Positive** | ⚠️ Thấp       | 56% → Xác nhận bằng xét nghiệm đàm              |
+| **Bias dataset**   | ⚠️ Có thể     | Dataset từ 1 nguồn → Cần validate trên data mới |
 
 ---
 
@@ -271,30 +271,30 @@ Cls Loss:  ███████████████████████
 
 ### 7.1 Ngắn Hạn (1-2 tháng)
 
-| # | Cải thiện | Kỳ vọng | Độ khó |
-|---|-----------|---------|--------|
-| 1 | **Upgrade lên YOLOv8m/l** | +5-10% mAP50 | ⭐⭐ Dễ |
-| 2 | **Thêm augmentation** | +3-5% Recall | ⭐⭐ Dễ |
-| 3 | **Tune confidence threshold** | Tối ưu Precision/Recall | ⭐ Rất dễ |
-| 4 | **Ensemble models** | +5% accuracy | ⭐⭐⭐ Trung bình |
+| #   | Cải thiện                     | Kỳ vọng                 | Độ khó            |
+| --- | ----------------------------- | ----------------------- | ----------------- |
+| 1   | **Upgrade lên YOLOv8m/l**     | +5-10% mAP50            | ⭐⭐ Dễ           |
+| 2   | **Thêm augmentation**         | +3-5% Recall            | ⭐⭐ Dễ           |
+| 3   | **Tune confidence threshold** | Tối ưu Precision/Recall | ⭐ Rất dễ         |
+| 4   | **Ensemble models**           | +5% accuracy            | ⭐⭐⭐ Trung bình |
 
 ### 7.2 Trung Hạn (3-6 tháng)
 
-| # | Cải thiện | Kỳ vọng | Độ khó |
-|---|-----------|---------|--------|
-| 1 | **Thu thập thêm data** | +10-15% mAP | ⭐⭐⭐⭐ Khó |
-| 2 | **Multi-task learning** | Classification + Detection cùng lúc | ⭐⭐⭐ Trung bình |
-| 3 | **Attention mechanism** | Focus vào vùng phổi | ⭐⭐⭐ Trung bình |
-| 4 | **Cross-validation** | Đánh giá robust hơn | ⭐⭐ Dễ |
+| #   | Cải thiện               | Kỳ vọng                             | Độ khó            |
+| --- | ----------------------- | ----------------------------------- | ----------------- |
+| 1   | **Thu thập thêm data**  | +10-15% mAP                         | ⭐⭐⭐⭐ Khó      |
+| 2   | **Multi-task learning** | Classification + Detection cùng lúc | ⭐⭐⭐ Trung bình |
+| 3   | **Attention mechanism** | Focus vào vùng phổi                 | ⭐⭐⭐ Trung bình |
+| 4   | **Cross-validation**    | Đánh giá robust hơn                 | ⭐⭐ Dễ           |
 
 ### 7.3 Dài Hạn (6-12 tháng)
 
-| # | Cải thiện | Kỳ vọng | Độ khó |
-|---|-----------|---------|--------|
-| 1 | **Federated Learning** | Train trên data phân tán | ⭐⭐⭐⭐⭐ Rất khó |
-| 2 | **Explainable AI** | Giải thích quyết định | ⭐⭐⭐⭐ Khó |
-| 3 | **Multi-modal** | Kết hợp CT scan, đàm | ⭐⭐⭐⭐⭐ Rất khó |
-| 4 | **Clinical trial** | Validation thực tế | ⭐⭐⭐⭐⭐ Rất khó |
+| #   | Cải thiện              | Kỳ vọng                  | Độ khó             |
+| --- | ---------------------- | ------------------------ | ------------------ |
+| 1   | **Federated Learning** | Train trên data phân tán | ⭐⭐⭐⭐⭐ Rất khó |
+| 2   | **Explainable AI**     | Giải thích quyết định    | ⭐⭐⭐⭐ Khó       |
+| 3   | **Multi-modal**        | Kết hợp CT scan, đàm     | ⭐⭐⭐⭐⭐ Rất khó |
+| 4   | **Clinical trial**     | Validation thực tế       | ⭐⭐⭐⭐⭐ Rất khó |
 
 ### 7.4 Đề Xuất Ưu Tiên
 
@@ -315,11 +315,11 @@ Cls Loss:  ███████████████████████
 
 ### 8.1 Tóm Tắt Kết Quả
 
-| Model | Kết quả | Đánh giá |
-|-------|---------|----------|
-| **Classification** | 98.1% Accuracy | ⭐⭐⭐⭐⭐ Xuất sắc |
-| **Detection** | 43% mAP50, 66% Recall | ⭐⭐⭐⭐ Tốt |
-| **Pipeline tổng thể** | Hoạt động ổn định | ⭐⭐⭐⭐ Tốt |
+| Model                 | Kết quả               | Đánh giá            |
+| --------------------- | --------------------- | ------------------- |
+| **Classification**    | 98.1% Accuracy        | ⭐⭐⭐⭐⭐ Xuất sắc |
+| **Detection**         | 43% mAP50, 66% Recall | ⭐⭐⭐⭐ Tốt        |
+| **Pipeline tổng thể** | Hoạt động ổn định     | ⭐⭐⭐⭐ Tốt        |
 
 ### 8.2 Kết Luận Chính
 
@@ -363,20 +363,20 @@ Cls Loss:  ███████████████████████
 
 ### A. Model Weights
 
-| Model | Path | Size |
-|-------|------|------|
+| Model          | Path                                           | Size   |
+| -------------- | ---------------------------------------------- | ------ |
 | Classification | `tb_classification/stage1_cls/weights/best.pt` | 3.0 MB |
-| Detection | `tb_detection/stage2_det/weights/best.pt` | 6.3 MB |
+| Detection      | `tb_detection/stage2_det/weights/best.pt`      | 6.3 MB |
 
 ### B. Training Environment
 
-| Component | Version |
-|-----------|---------|
-| Python | 3.11.6 |
-| PyTorch | 2.5.1+cu121 |
-| Ultralytics | 8.3.x |
-| CUDA | 12.1 |
-| GPU | NVIDIA GTX 1050 Ti 4GB |
+| Component   | Version                |
+| ----------- | ---------------------- |
+| Python      | 3.11.6                 |
+| PyTorch     | 2.5.1+cu121            |
+| Ultralytics | 8.3.x                  |
+| CUDA        | 12.1                   |
+| GPU         | NVIDIA GTX 1050 Ti 4GB |
 
 ### C. Commands Tái Tạo
 
@@ -388,7 +388,7 @@ model = YOLO('yolov8n-cls.pt')
 model.train(data='datasets/dataset_cls', epochs=100, imgsz=224, batch=32)
 "
 
-# Detection Training  
+# Detection Training
 python -c "
 from ultralytics import YOLO
 model = YOLO('yolov8n.pt')
@@ -397,6 +397,3 @@ model.train(data='datasets/dataset_det/dataset.yaml', epochs=100, imgsz=640, bat
 ```
 
 ---
-
-*Báo cáo được tạo tự động từ kết quả training.*
-*Ngày: 01/12/2024*
