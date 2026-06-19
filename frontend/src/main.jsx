@@ -1,6 +1,6 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
-import { Activity, BarChart3, Clock, Database, History, LogOut, ShieldCheck, UploadCloud, UserPlus } from 'lucide-react';
+import { Activity, ArrowLeft, BarChart3, Clock, Database, Edit, FileText, History, Image, LogOut, Plus, Search, ShieldCheck, Trash2, UploadCloud, UserPlus, Users } from 'lucide-react';
 import {
   Bar,
   BarChart,
@@ -68,6 +68,7 @@ function App() {
         </div>
         <nav>
           <NavButton icon={<UploadCloud />} label="Diagnosis" active={view === 'dashboard'} onClick={() => setView('dashboard')} />
+          <NavButton icon={<Users />} label="Patients" active={view === 'patients'} onClick={() => setView('patients')} />
           <NavButton icon={<History />} label="History" active={view === 'history'} onClick={() => setView('history')} />
           <NavButton icon={<BarChart3 />} label="Analytics" active={view === 'analytics'} onClick={() => setView('analytics')} />
           <NavButton icon={<Database />} label="Training" active={view === 'training'} onClick={() => setView('training')} />
@@ -80,6 +81,7 @@ function App() {
       </aside>
       <main className="content">
         {view === 'dashboard' && <Dashboard token={token} />}
+        {view === 'patients' && <PatientsPage token={token} />}
         {view === 'history' && <HistoryPage token={token} />}
         {view === 'analytics' && <AnalyticsPage token={token} />}
         {view === 'training' && <TrainingPage token={token} />}
@@ -178,6 +180,9 @@ function Dashboard({ token }) {
 
   return (
     <Page title="AI Diagnosis" subtitle="Run detection-first TB analysis on a chest X-ray image.">
+      <div className="notice">
+        Quick upload is not linked to a patient record. Use <strong>Patients</strong> to select a patient, upload X-ray images, and keep diagnoses in the medical history.
+      </div>
       <div className="grid two">
         <section className="panel">
           <h3>Upload X-ray</h3>
@@ -201,12 +206,12 @@ function Dashboard({ token }) {
           )}
         </section>
       </div>
-      {result && <PredictionDetails result={result} />}
+      {result && <PredictionDetails result={result} token={token} />}
     </Page>
   );
 }
 
-function PredictionDetails({ result }) {
+function PredictionDetails({ result, token }) {
   return (
     <div className="result-stack">
       <div className="stats-row">
@@ -231,15 +236,296 @@ function PredictionDetails({ result }) {
         <h3>Bounding boxes</h3>
         <DataTable rows={result.boxes} />
       </section>
+      <MedicalReportPanel predictionId={result.id} token={token} />
     </div>
   );
 }
 
+function PatientsPage({ token }) {
+  const [search, setSearch] = React.useState('');
+  const [patients, setPatients] = React.useState([]);
+  const [selected, setSelected] = React.useState(null);
+  const [editing, setEditing] = React.useState(null);
+  const [showForm, setShowForm] = React.useState(false);
+  const [loading, setLoading] = React.useState(false);
+  const [error, setError] = React.useState('');
+
+  const loadPatients = React.useCallback(async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const qs = search.trim() ? `?search=${encodeURIComponent(search.trim())}` : '';
+      setPatients(await apiClient(token).request(`/patients${qs}`));
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }, [search, token]);
+
+  React.useEffect(() => { loadPatients(); }, [loadPatients]);
+
+  const savePatient = async (payload) => {
+    const path = editing ? `/patients/${editing.id}` : '/patients';
+    const method = editing ? 'PUT' : 'POST';
+    const patient = await apiClient(token).request(path, {
+      method,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    setShowForm(false);
+    setEditing(null);
+    setSelected(patient);
+    await loadPatients();
+  };
+
+  const removePatient = async (patient) => {
+    if (!confirm(`Deactivate patient ${patient.full_name}?`)) return;
+    const updated = await apiClient(token).request(`/patients/${patient.id}`, { method: 'DELETE' });
+    if (selected?.id === patient.id) setSelected(updated);
+    await loadPatients();
+  };
+
+  if (selected) {
+    if (showForm) {
+      return (
+        <Page title="Edit Patient" subtitle={`${selected.patient_code} · ${selected.full_name}`}>
+          <PatientForm
+            initial={editing || selected}
+            onCancel={() => { setShowForm(false); setEditing(null); }}
+            onSave={savePatient}
+          />
+        </Page>
+      );
+    }
+    return (
+      <PatientDetail
+        token={token}
+        patient={selected}
+        onBack={() => setSelected(null)}
+        onEdit={() => { setEditing(selected); setShowForm(true); }}
+      />
+    );
+  }
+
+  return (
+    <Page title="Patients" subtitle="Create patient profiles, manage X-ray studies, and run linked AI diagnoses.">
+      <div className="toolbar">
+        <div className="search-box"><Search size={16} /><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search name, code, phone" /></div>
+        <button className="secondary-button" onClick={() => { setEditing(null); setShowForm(true); }}><Plus size={16} /> Create Patient</button>
+      </div>
+      {error && <div className="error">{error}</div>}
+      {loading && <div className="empty-state">Loading patients...</div>}
+      {showForm && (
+        <PatientForm
+          initial={editing}
+          onCancel={() => { setShowForm(false); setEditing(null); }}
+          onSave={savePatient}
+        />
+      )}
+      <div className="patient-grid">
+        {patients.map((patient) => (
+          <article className="patient-card" key={patient.id}>
+            <div>
+              <strong>{patient.full_name}</strong>
+              <span>{patient.patient_code}</span>
+            </div>
+            <div className="patient-meta">
+              <span>{patient.gender || 'Gender: -'}</span>
+              <span>{patient.phone || 'Phone: -'}</span>
+            </div>
+            <div className="patient-card-actions">
+              <button className="compact-button" onClick={() => setSelected(patient)}><Image size={14} /> Open</button>
+              <button className="compact-button" onClick={() => { setEditing(patient); setShowForm(true); }}><Edit size={14} /> Edit</button>
+              <button className="compact-button danger" onClick={() => removePatient(patient)}><Trash2 size={14} /> Deactivate</button>
+            </div>
+          </article>
+        ))}
+      </div>
+    </Page>
+  );
+}
+
+function PatientForm({ initial, onSave, onCancel }) {
+  const [form, setForm] = React.useState(() => ({
+    patient_code: initial?.patient_code || '',
+    full_name: initial?.full_name || '',
+    gender: initial?.gender || '',
+    date_of_birth: initial?.date_of_birth || '',
+    phone: initial?.phone || '',
+    address: initial?.address || '',
+    national_id: initial?.national_id || '',
+    insurance_id: initial?.insurance_id || '',
+    medical_history: initial?.medical_history || '',
+    allergy_history: initial?.allergy_history || '',
+    current_symptoms: initial?.current_symptoms || '',
+    notes: initial?.notes || '',
+  }));
+  const [error, setError] = React.useState('');
+  const [saving, setSaving] = React.useState(false);
+
+  const setField = (key, value) => setForm((old) => ({ ...old, [key]: value }));
+  const submit = async (event) => {
+    event.preventDefault();
+    setSaving(true);
+    setError('');
+    try {
+      const payload = Object.fromEntries(Object.entries(form).map(([key, value]) => [key, value === '' ? null : value]));
+      await onSave(payload);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <form className="panel patient-form" onSubmit={submit}>
+      <div className="panel-title-row">
+        <h3>{initial ? 'Edit patient' : 'Create patient'}</h3>
+        <button type="button" className="compact-button" onClick={onCancel}>Cancel</button>
+      </div>
+      <div className="form-grid">
+        <input value={form.patient_code} onChange={(e) => setField('patient_code', e.target.value)} placeholder="Patient code (auto if empty)" />
+        <input value={form.full_name} onChange={(e) => setField('full_name', e.target.value)} placeholder="Full name" required />
+        <select value={form.gender} onChange={(e) => setField('gender', e.target.value)}>
+          <option value="">Gender</option>
+          <option value="male">Male</option>
+          <option value="female">Female</option>
+          <option value="other">Other</option>
+        </select>
+        <input value={form.date_of_birth} onChange={(e) => setField('date_of_birth', e.target.value)} type="date" />
+        <input value={form.phone} onChange={(e) => setField('phone', e.target.value)} placeholder="Phone" />
+        <input value={form.national_id} onChange={(e) => setField('national_id', e.target.value)} placeholder="National ID" />
+        <input value={form.insurance_id} onChange={(e) => setField('insurance_id', e.target.value)} placeholder="Insurance ID" />
+        <input value={form.address} onChange={(e) => setField('address', e.target.value)} placeholder="Address" />
+      </div>
+      <textarea value={form.current_symptoms} onChange={(e) => setField('current_symptoms', e.target.value)} placeholder="Current symptoms" />
+      <textarea value={form.medical_history} onChange={(e) => setField('medical_history', e.target.value)} placeholder="Medical history" />
+      <textarea value={form.allergy_history} onChange={(e) => setField('allergy_history', e.target.value)} placeholder="Allergy history" />
+      <textarea value={form.notes} onChange={(e) => setField('notes', e.target.value)} placeholder="Notes" />
+      {error && <div className="error">{error}</div>}
+      <button className="primary-button" disabled={saving}>{saving ? 'Saving...' : 'Save patient'}</button>
+    </form>
+  );
+}
+
+function PatientDetail({ token, patient, onBack, onEdit }) {
+  const [studies, setStudies] = React.useState([]);
+  const [file, setFile] = React.useState(null);
+  const [threshold, setThreshold] = React.useState(0.25);
+  const [loading, setLoading] = React.useState(false);
+  const [error, setError] = React.useState('');
+  const [selectedResult, setSelectedResult] = React.useState(null);
+
+  const loadStudies = React.useCallback(async () => {
+    setError('');
+    try {
+      setStudies(await apiClient(token).request(`/patients/${patient.id}/xray-studies`));
+    } catch (err) {
+      setError(err.message);
+    }
+  }, [patient.id, token]);
+
+  React.useEffect(() => { loadStudies(); }, [loadStudies]);
+
+  const diagnose = async () => {
+    if (!file) return;
+    setLoading(true);
+    setError('');
+    try {
+      const form = new FormData();
+      form.append('file', file);
+      const study = await apiClient(token).request(`/patients/${patient.id}/xray-studies?conf_threshold=${threshold}`, {
+        method: 'POST',
+        body: form,
+      });
+      setSelectedResult(study.prediction);
+      setFile(null);
+      await loadStudies();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Page title={patient.full_name} subtitle={`${patient.patient_code} · ${patient.gender || 'gender not set'}`}>
+      <div className="toolbar">
+        <button className="secondary-button" onClick={onBack}><ArrowLeft size={16} /> Back</button>
+        <button className="secondary-button" onClick={onEdit}><Edit size={16} /> Edit profile</button>
+      </div>
+      <div className="grid two">
+        <section className="panel profile-panel">
+          <h3>Patient Profile</h3>
+          <Info label="Date of birth" value={patient.date_of_birth || '-'} />
+          <Info label="Phone" value={patient.phone || '-'} />
+          <Info label="Symptoms" value={patient.current_symptoms || '-'} />
+          <Info label="Medical history" value={patient.medical_history || '-'} />
+          <Info label="Allergy history" value={patient.allergy_history || '-'} />
+        </section>
+        <section className="panel">
+          <h3>Upload X-ray & Diagnose</h3>
+          <label className="dropzone">
+            <UploadCloud size={28} />
+            <span>{file ? file.name : 'Choose patient X-ray image'}</span>
+            <input type="file" accept="image/*" onChange={(e) => setFile(e.target.files?.[0] || null)} />
+          </label>
+          <label className="slider-label">Detection confidence: {threshold.toFixed(2)}</label>
+          <input type="range" min="0.05" max="0.95" step="0.05" value={threshold} onChange={(e) => setThreshold(Number(e.target.value))} />
+          <button className="primary-button" onClick={diagnose} disabled={!file || loading}>{loading ? 'Analyzing...' : 'Upload & diagnose'}</button>
+          {error && <div className="error">{error}</div>}
+        </section>
+      </div>
+      {selectedResult && <PredictionDetails result={selectedResult} token={token} />}
+      <section className="panel">
+        <h3>X-ray Studies</h3>
+        <div className="study-list">
+          {studies.map((study) => (
+            <article className="study-card" key={study.id}>
+              <div>
+                <strong>{study.original_filename}</strong>
+                <span>{new Date(study.created_at).toLocaleString()}</span>
+              </div>
+              <span className="badge">{study.study_status}</span>
+              {study.prediction && (
+                <>
+                  <span>{study.prediction.predicted_class}</span>
+                  <span>{(study.prediction.confidence * 100).toFixed(1)}%</span>
+                  <button className="compact-button" onClick={() => setSelectedResult(study.prediction)}>Open diagnosis</button>
+                </>
+              )}
+            </article>
+          ))}
+          {!studies.length && <div className="empty-state">No X-ray studies for this patient yet.</div>}
+        </div>
+      </section>
+    </Page>
+  );
+}
+
+function Info({ label, value }) {
+  return <div className="info-row"><span>{label}</span><strong>{value}</strong></div>;
+}
+
 function HistoryPage({ token }) {
-  const { data, error, loading, refresh } = useApi(token, '/predictions');
+  const [patientId, setPatientId] = React.useState('');
+  const patientsApi = useApi(token, '/patients?limit=100');
+  const path = patientId ? `/predictions?patient_id=${patientId}` : '/predictions';
+  const { data, error, loading, refresh } = useApi(token, path);
+  const [selected, setSelected] = React.useState(null);
   return (
     <Page title="Prediction History" subtitle="Review saved diagnoses from PostgreSQL.">
-      <button className="secondary-button" onClick={refresh}>Refresh</button>
+      <div className="toolbar">
+        <select value={patientId} onChange={(e) => setPatientId(e.target.value)}>
+          <option value="">All patients and quick uploads</option>
+          {(patientsApi.data || []).map((patient) => (
+            <option key={patient.id} value={patient.id}>{patient.patient_code} - {patient.full_name}</option>
+          ))}
+        </select>
+        <button className="secondary-button" onClick={refresh}>Refresh</button>
+      </div>
       {loading && <div className="empty-state">Loading history...</div>}
       {error && <div className="error">{error}</div>}
       <div className="history-list">
@@ -247,15 +533,117 @@ function HistoryPage({ token }) {
           <article className="history-item" key={item.id}>
             <div>
               <strong>{item.filename}</strong>
+              <span>{item.patient ? `${item.patient.patient_code} · ${item.patient.full_name}` : 'Quick upload'}</span>
               <span>{new Date(item.created_at).toLocaleString()}</span>
             </div>
             <div className="badge">{item.predicted_class}</div>
             <div>{(item.confidence * 100).toFixed(1)}%</div>
             <div><Clock size={14} /> {item.processing_time_ms.toFixed(0)} ms</div>
+            <button className="compact-button" onClick={() => setSelected(selected === item.id ? null : item.id)}>
+              <FileText size={14} /> Report
+            </button>
+            {selected === item.id && (
+              <div className="history-report">
+                <MedicalReportPanel predictionId={item.id} token={token} />
+              </div>
+            )}
           </article>
         ))}
       </div>
     </Page>
+  );
+}
+
+function MedicalReportPanel({ predictionId, token }) {
+  const [report, setReport] = React.useState(null);
+  const [loading, setLoading] = React.useState(false);
+  const [error, setError] = React.useState('');
+
+  const loadExisting = React.useCallback(async () => {
+    setError('');
+    try {
+      const payload = await apiClient(token).request(`/predictions/${predictionId}/medical-report`);
+      setReport(payload);
+    } catch (err) {
+      if (!String(err.message).includes('not found')) {
+        setError(err.message);
+      }
+    }
+  }, [predictionId, token]);
+
+  React.useEffect(() => {
+    loadExisting();
+  }, [loadExisting]);
+
+  const generate = async (force = false) => {
+    setLoading(true);
+    setError('');
+    try {
+      const payload = await apiClient(token).request(`/predictions/${predictionId}/medical-report${force ? '?force=true' : ''}`, {
+        method: 'POST',
+      });
+      setReport(payload);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <section className="panel medical-report-panel">
+      <div className="panel-title-row">
+        <h3>Medical Report</h3>
+        <div className="button-row">
+          <button className="secondary-button" onClick={() => generate(false)} disabled={loading}>
+            <FileText size={16} /> {report ? 'Load report' : 'Generate report'}
+          </button>
+          {report && (
+            <button className="secondary-button" onClick={() => generate(true)} disabled={loading}>
+              Retry
+            </button>
+          )}
+        </div>
+      </div>
+      {loading && <div className="empty-state">Generating medical report with Gemini...</div>}
+      {error && <div className="error">{error}</div>}
+      {!loading && !report && !error && (
+        <div className="empty-state">Generate a structured medical report for this prediction.</div>
+      )}
+      {report?.report && <MedicalReportView report={report} />}
+    </section>
+  );
+}
+
+function MedicalReportView({ report }) {
+  const content = report.report;
+  const sections = [
+    ['Clinical summary', [content.clinical_summary]],
+    ['Imaging findings', content.imaging_findings],
+    ['AI interpretation', [content.ai_interpretation]],
+    ['Risk level', [content.risk_level]],
+    ['Recommendations', content.recommendations],
+    ['Patient advice', content.patient_advice],
+    ['Red flags', content.red_flags],
+    ['Limitations', content.limitations],
+    ['Next steps', content.next_steps],
+    ['Disclaimer', [content.disclaimer]],
+  ];
+  return (
+    <article className="medical-report-view">
+      <div className="report-meta">
+        <span>Status: {report.status}</span>
+        <span>Model: {report.model_name}</span>
+      </div>
+      {sections.map(([title, items]) => (
+        <section className="report-section" key={title}>
+          <h4>{title}</h4>
+          {items.length === 1 ? <p>{items[0]}</p> : (
+            <ul>{items.map((item, index) => <li key={index}>{item}</li>)}</ul>
+          )}
+        </section>
+      ))}
+    </article>
   );
 }
 

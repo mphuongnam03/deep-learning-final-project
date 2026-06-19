@@ -4,7 +4,7 @@ from sqlalchemy import text
 
 from backend.app.core.config import get_settings
 from backend.app.db.session import SessionLocal, init_db
-from backend.app.routers import analytics, auth, predictions
+from backend.app.routers import analytics, auth, medical_reports, patients, predictions
 from backend.app.services.prediction_service import ModelService
 
 
@@ -15,15 +15,18 @@ app = FastAPI(title=settings.app_name)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origin_list,
-    allow_credentials=True,
+    allow_credentials=settings.cors_origin_list != ["*"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 predictions.configure_model_service(model_service)
+patients.configure_model_service(model_service)
 app.include_router(auth.router, prefix=settings.api_prefix)
 app.include_router(predictions.router, prefix=settings.api_prefix)
+app.include_router(patients.router, prefix=settings.api_prefix)
 app.include_router(analytics.router, prefix=settings.api_prefix)
+app.include_router(medical_reports.router, prefix=settings.api_prefix)
 
 
 @app.on_event("startup")

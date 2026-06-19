@@ -8,6 +8,7 @@ try:
     from dotenv import load_dotenv
 
     load_dotenv()
+    load_dotenv(Path(__file__).resolve().parents[2] / ".env", override=True)
 except Exception:
     pass
 
@@ -16,7 +17,7 @@ except Exception:
 class Settings:
     app_name: str = "TB AI Diagnosis API"
     api_prefix: str = "/api"
-    cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
+    cors_origins: str = "*"
 
     database_url: str = "postgresql+psycopg2://tb_user:tb_password@localhost:5432/tb_ai_db"
     jwt_secret_key: str = "change-this-secret-key"
@@ -29,6 +30,10 @@ class Settings:
     detection_model_path: str = "tb_detection/stage2_det/weights/best.pt"
     non_tb_drop_threshold: float = 0.80
     roi_padding_ratio: float = 0.20
+    gemini_api_key: str = ""
+    gemini_model: str = "gemini-3.5-flash"
+    enable_medical_reports: bool = True
+    uploads_dir: str = "backend/uploads"
 
     @property
     def repo_root(self) -> Path:
@@ -40,6 +45,8 @@ class Settings:
 
     @property
     def cors_origin_list(self) -> list[str]:
+        if self.cors_origins.strip() == "*":
+            return ["*"]
         return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]
 
 
@@ -59,4 +66,8 @@ def get_settings() -> Settings:
         detection_model_path=os.getenv("DETECTION_MODEL_PATH", Settings.detection_model_path),
         non_tb_drop_threshold=float(os.getenv("NON_TB_DROP_THRESHOLD", str(Settings.non_tb_drop_threshold))),
         roi_padding_ratio=float(os.getenv("ROI_PADDING_RATIO", str(Settings.roi_padding_ratio))),
+        gemini_api_key=os.getenv("GEMINI_API_KEY", Settings.gemini_api_key),
+        gemini_model=os.getenv("GEMINI_MODEL", Settings.gemini_model),
+        enable_medical_reports=os.getenv("ENABLE_MEDICAL_REPORTS", "true").lower() in {"1", "true", "yes", "on"},
+        uploads_dir=os.getenv("UPLOADS_DIR", Settings.uploads_dir),
     )

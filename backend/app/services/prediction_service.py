@@ -98,10 +98,14 @@ def _clip_bbox(x1: int, y1: int, x2: int, y2: int, w: int, h: int) -> tuple[int,
 
 
 async def decode_upload_image(file: UploadFile) -> np.ndarray:
-    cv2 = _cv2()
     if not file.content_type or not file.content_type.startswith("image/"):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Uploaded file must be an image")
     raw = await file.read()
+    return decode_image_bytes(raw)
+
+
+def decode_image_bytes(raw: bytes) -> np.ndarray:
+    cv2 = _cv2()
     if not raw:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Uploaded image is empty")
     buffer = np.frombuffer(raw, dtype=np.uint8)

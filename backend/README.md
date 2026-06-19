@@ -30,7 +30,12 @@ Useful endpoints:
 - `GET /api/analytics/dataset`
 - `POST /api/training-metrics/import` (admin only)
 - `GET /api/training-metrics`
+- `POST /api/predictions/{prediction_id}/medical-report`
+- `GET /api/predictions/{prediction_id}/medical-report`
+- `GET /api/medical-reports/{report_id}`
 
 Passwords are hashed with PBKDF2-HMAC-SHA256 and per-user salts. Plain SHA, SHA1, and MD5 are not used for password storage.
 
 The first registered account is created as `admin`; later accounts default to `student`.
+
+Medical reports use Gemini API when `GEMINI_API_KEY` is configured in `.env`. The report prompt forbids medication dosages, prescriptions, and replacing physician review.

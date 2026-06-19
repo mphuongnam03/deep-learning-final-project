@@ -1,3 +1,5 @@
+from typing import Optional
+
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
 from sqlalchemy.orm import Session, joinedload
 
@@ -5,7 +7,7 @@ from backend.app.core.config import Settings, get_settings
 from backend.app.db.models import Prediction, PredictionBox, PredictionProbability, User
 from backend.app.db.session import get_db
 from backend.app.routers.deps import get_current_user
-from backend.app.schemas import BoxRead, PredictionRead, ProbabilityRead
+from backend.app.schemas import BoxRead, PatientSummary, PredictionRead, ProbabilityRead, XrayStudySummary
 from backend.app.services.prediction_service import ModelService, decode_upload_image, predict_image
 
 
@@ -38,17 +40,25 @@ async def predict(
 @router.get("/predictions", response_model=list[PredictionRead])
 def list_predictions(
     limit: int = Query(default=20, ge=1, le=100),
+    patient_id: Optional[int] = Query(default=None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     query = (
         db.query(Prediction)
-        .options(joinedload(Prediction.probabilities), joinedload(Prediction.boxes))
+        .options(
+            joinedload(Prediction.probabilities),
+            joinedload(Prediction.boxes),
+            joinedload(Prediction.patient),
+            joinedload(Prediction.xray_study),
+        )
         .order_by(Prediction.created_at.desc())
-        .limit(limit)
     )
     if current_user.role != "admin":
         query = query.filter(Prediction.user_id == current_user.id)
+    if patient_id is not None:
+        query = query.filter(Prediction.patient_id == patient_id)
+    query = query.limit(limit)
     return [_prediction_read(item, include_image=False) for item in query.all()]
 
 
@@ -60,7 +70,12 @@ def get_prediction(
 ):
     prediction = (
         db.query(Prediction)
-        .options(joinedload(Prediction.probabilities), joinedload(Prediction.boxes))
+        .options(
+            joinedload(Prediction.probabilities),
+            joinedload(Prediction.boxes),
+            joinedload(Prediction.patient),
+            joinedload(Prediction.xray_study),
+        )
         .filter(Prediction.id == prediction_id)
         .first()
     )
@@ -71,9 +86,17 @@ def get_prediction(
     return _prediction_read(prediction)
 
 
-def _save_prediction(db: Session, user_id: int, payload: dict) -> Prediction:
+def _save_prediction(
+    db: Session,
+    user_id: int,
+    payload: dict,
+    patient_id: Optional[int] = None,
+    xray_study_id: Optional[int] = None,
+) -> Prediction:
     prediction = Prediction(
         user_id=user_id,
+        patient_id=patient_id,
+        xray_study_id=xray_study_id,
         filename=payload["filename"],
         predicted_class=payload["predicted_class"],
         confidence=payload["confidence"],
@@ -107,17 +130,46 @@ def _save_prediction(db: Session, user_id: int, payload: dict) -> Prediction:
         for item in payload["boxes"]
     ]
     db.add(prediction)
-    db.commit()
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
     db.refresh(prediction)
     return (
         db.query(Prediction)
-        .options(joinedload(Prediction.probabilities), joinedload(Prediction.boxes))
+        .options(
+            joinedload(Prediction.probabilities),
+            joinedload(Prediction.boxes),
+            joinedload(Prediction.patient),
+            joinedload(Prediction.xray_study),
+        )
         .filter(Prediction.id == prediction.id)
         .one()
     )
 
 
 def _prediction_read(prediction: Prediction, include_image: bool = True) -> PredictionRead:
+    patient = None
+    if prediction.patient:
+        patient = PatientSummary(
+            id=prediction.patient.id,
+            patient_code=prediction.patient.patient_code,
+            full_name=prediction.patient.full_name,
+            gender=prediction.patient.gender,
+            date_of_birth=prediction.patient.date_of_birth,
+        )
+    xray_study = None
+    if prediction.xray_study:
+        xray_study = XrayStudySummary(
+            id=prediction.xray_study.id,
+            patient_id=prediction.xray_study.patient_id,
+            original_filename=prediction.xray_study.original_filename,
+            study_status=prediction.xray_study.study_status,
+            image_width=prediction.xray_study.image_width,
+            image_height=prediction.xray_study.image_height,
+            created_at=prediction.xray_study.created_at,
+        )
     return PredictionRead(
         id=prediction.id,
         filename=prediction.filename,
@@ -132,6 +184,8 @@ def _prediction_read(prediction: Prediction, include_image: bool = True) -> Pred
         image_height=prediction.image_height,
         processing_time_ms=prediction.processing_time_ms,
         created_at=prediction.created_at,
+        patient=patient,
+        xray_study=xray_study,
         annotated_image_base64=prediction.annotated_image_base64 if include_image else None,
         probabilities=[
             ProbabilityRead(class_name=item.class_name, probability=item.probability)

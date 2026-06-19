@@ -30,7 +30,7 @@ def register(payload: UserCreate, db: Session = Depends(get_db), settings: Setti
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already registered")
 
     password_hash, password_salt = hash_password(payload.password)
-    role = "admin" if db.query(User).count() == 0 else "student"
+    role = "admin" if db.query(User).count() == 0 else "doctor"
     user = User(
         email=payload.email.lower(),
         full_name=payload.full_name.strip(),
